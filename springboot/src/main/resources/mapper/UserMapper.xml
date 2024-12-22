@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.hnnu.egospace.launcher.mapper.UserMapper">
+
+    <select id="searchUser" resultType="com.hnnu.egospace.launcher.entity.User">
+        select * from user_info
+        <where>
+            <if test="params != null and params.name != null and params.name != ''">
+                and username like CONCAT('%', #{params.name}, '%')
+            </if>
+            <if test="params != null and params.phone != null and params.phone != ''">
+                and phone like CONCAT('%', #{params.phone}, '%')
+            </if>
+            <if test="params != null and params.address != null and params.address != ''">
+                and address like CONCAT('%', #{params.address}, '%')
+            </if>
+        </where>
+        order by id desc
+    </select>
+    
+    <select id="checkUUID" resultType="com.hnnu.egospace.launcher.entity.User">
+        SELECT * FROM user_info WHERE id = #{id}
+    </select>
+
+    <insert id="insertUser" parameterType="com.hnnu.egospace.launcher.entity.User">
+        INSERT INTO user_info (id, username, password, gender, age, phone, address, realName, studentId, email)
+        VALUES (#{id}, #{username}, #{password}, #{gender}, #{age}, #{phone}, #{address}, #{realName}, #{studentId}, #{email})
+    </insert>
+
+    <update id="updateUser" parameterType="com.hnnu.egospace.launcher.entity.User">
+        UPDATE user_info SET
+            username = #{username},
+            password = #{password},
+            gender = #{gender},
+            age = #{age},
+            phone = #{phone},
+            address = #{address},
+            realName = #{realName},
+            studentId = #{studentId},
+            email = #{email}
+        WHERE id = #{id}
+    </update>
+
+    <delete id="deleteUser" parameterType="com.hnnu.egospace.launcher.entity.User">
+        DELETE FROM user_info WHERE id = #{id}
+    </delete>
+    
+</mapper>

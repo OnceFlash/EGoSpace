@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.hnnu.egospace.launcher.mapper.AdminMapper">
+
+    <select id="searchAdmin" resultType="com.hnnu.egospace.launcher.entity.Admin">
+        select * from admin_info
+        <where>
+            <if test="params != null and params.realName != null and params.realName != ''">
+                and realName like CONCAT('%', #{params.realName}, '%')
+            </if>
+            <if test="params != null and params.phone != null and params.phone != ''">
+                and phone like CONCAT('%', #{params.phone}, '%')
+            </if>
+            <if test="params != null and params.email != null and params.email != ''">
+                and email like CONCAT('%', #{params.email}, '%')
+            </if>
+        </where>
+        order by id desc
+    </select>
+    
+    <select id="checkUUID" resultType="com.hnnu.egospace.launcher.entity.Admin">
+        SELECT * FROM admin_info WHERE ID = #{ID}
+    </select>
+
+    <insert id="insertAdmin" parameterType="com.hnnu.egospace.launcher.entity.Admin">
+        INSERT INTO admin_info (ID, realName, phone, address, email)
+        VALUES (#{ID}, #{realName}, #{phone}, #{address}, #{email})
+    </insert>
+
+    <update id="updateAdmin" parameterType="com.hnnu.egospace.launcher.entity.Admin">
+        UPDATE admin_info SET
+            realName = #{realName},
+            phone = #{phone},
+            address = #{address},
+            email = #{email}
+        WHERE ID = #{ID}
+    </update>
+
+    <delete id="deleteAdmin" parameterType="com.hnnu.egospace.launcher.entity.Admin">
+        DELETE FROM admin_info WHERE ID = #{ID}
+    </delete>
+
+</mapper>
