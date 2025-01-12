@@ -1,0 +1,487 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>No Time For Caution</title>
+    <style>
+        #gameContainer { text-align: center; }
+        #gameInfo {
+            color: white;
+            font-size: 16px;
+            margin: 10px;
+            display: flex;
+            justify-content: space-around;
+        }
+        canvas { 
+            border: 1px solid #333;
+            background: #000;
+        }
+        #status { color: white; }
+    </style>
+</head>
+<body>
+    <div id="gameContainer">
+        <div id="gameInfo">
+            <div>Score: <span id="scoreValue">0</span></div>
+            <div>Wave: <span id="waveValue">1</span></div>
+            <div>Health: <span id="healthValue">100</span></div>
+            <div>Bullet Type: <span id="bulletType">Single</span></div>
+        </div>
+        <canvas id="gameCanvas" width="800" height="600"></canvas>
+        <div id="controls">
+            <button onclick="startGame()">Start Game</button>
+            <button onclick="pauseGame()">Pause</button>
+        </div>
+        <div id="status">Disconnected</div>
+    </div>
+
+    <script>
+        let ws;
+        let gameState = null;
+        let reconnectAttempts = 0;
+        const MAX_RECONNECT_ATTEMPTS = 5;
+        const RECONNECT_DELAY = 3000;
+
+        function connectWebSocket() {
+            ws = new WebSocket('ws://localhost:8081/game/test');
+            
+            ws.onopen = () => {
+                document.getElementById('status').textContent = 'Connected';
+                reconnectAttempts = 0;
+                gameLoop();
+            };
+            
+            ws.onmessage = (event) => {
+                try {
+                    gameState = JSON.parse(event.data);
+                    updateUI(gameState);
+                } catch (e) {
+                    console.error('Failed to parse game state:', e);
+                }
+            };
+        }
+
+        // Initialize connection when page loads
+        window.addEventListener('load', connectWebSocket);
+
+        // Handle game commands safely
+        function sendCommand(command) {
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify(command));
+            }
+        }
+
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        // Key state tracking
+        const keys = {
+            ArrowLeft: false,
+            ArrowRight: false,
+            Space: false
+        };
+
+        document.addEventListener('keydown', (e) => {
+            if (keys.hasOwnProperty(e.code)) {
+                keys[e.code] = true;
+                if (e.code === 'Space') {
+                    sendCommand({ type: 'TOGGLE_BULLET' });
+                    e.preventDefault();
+                }
+            }
+        });
+
+        document.addEventListener('keyup', (e) => {
+            if (keys.hasOwnProperty(e.code)) {
+                keys[e.code] = false;
+            }
+        });
+
+        function handleInput() {
+            if (ws.readyState === WebSocket.OPEN && gameState?.gameStarted) {
+                if (keys.ArrowLeft) {
+                    sendCommand({ type: 'MOVE_LEFT' });
+                }
+                if (keys.ArrowRight) {
+                    sendCommand({ type: 'MOVE_RIGHT' });
+                }
+                if (keys.Space) {
+                    sendCommand({ type: 'SHOOT' });
+                }
+            }
+        }
+
+        function updateUI(gameState) {
+            if (!gameState) return;
+            
+            // Clear canvas
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // Draw background
+            ctx.fillStyle = '#000000';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // Draw stars (random twinkling)
+            drawStars();
+            
+            // Draw player
+            if (gameState.player) {
+                ctx.fillStyle = '#00FF00';  // Green for player
+                drawEntity(gameState.player);
+            }
+            
+            // Draw enemies
+            if (gameState.enemies) {
+                gameState.enemies.forEach(enemy => {
+                    ctx.fillStyle = enemy.color || '#FF0000';  // Red for enemies
+                    drawEntity(enemy);
+                });
+            }
+            
+            // Draw bullets
+            if (gameState.bullets) {
+                gameState.bullets.forEach(bullet => {
+                    ctx.fillStyle = bullet.color || '#0000FF';  // Blue for bullets
+                    drawEntity(bullet);
+                });
+            }
+            
+            // Update score and wave display
+            updateGameInfo(gameState);
+        }
+
+        function drawEntity(entity) {
+            ctx.beginPath();
+            ctx.arc(entity.x, entity.y, entity.size/2, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Draw health bar for ships
+            if (entity.health !== undefined && entity.maxHealth !== undefined) {
+                drawHealthBar(entity);
+            }
+        }
+
+        function drawHealthBar(entity) {
+            const barWidth = entity.size;
+            const barHeight = 4;
+            const healthPercent = entity.health / entity.maxHealth;
+            
+            ctx.fillStyle = '#FF0000';
+            ctx.fillRect(entity.x - barWidth/2, entity.y - entity.size/2 - 10, barWidth, barHeight);
+            
+            ctx.fillStyle = '#00FF00';
+            ctx.fillRect(entity.x - barWidth/2, entity.y - entity.size/2 - 10, barWidth * healthPercent, barHeight);
+        }
+
+        function updateGameInfo(gameState) {
+            ctx.fillStyle = '#FFFFFF';
+            ctx.font = '20px Arial';
+            ctx.fillText(`Score: ${gameState.score}`, 10, 30);
+            ctx.fillText(`Wave: ${gameState.wave}`, 10, 60);
+        }
+
+        // Add persistent stars array
+        const stars = Array(50).fill(null).map(() => ({
+            x: Math.random() * canvas.width,
+            y: Math.random() * canvas.height,
+            size: Math.random() * 3 + 2,
+            brightness: Math.random(),
+            twinkleSpeed: Math.random() * 0.03 + 0.01,
+            speed: Math.random() * 0.3 + 0.1
+        }));
+
+        function drawSpaceShip(ctx, x, y, size, color, isEnemy = false) {
+            ctx.save();
+            ctx.translate(x, y);
+            if (isEnemy) {
+                ctx.rotate(Math.PI); // Rotate 180 degrees for enemies
+            }
+            
+            ctx.fillStyle = color;
+            ctx.beginPath();
+            ctx.moveTo(0, -size/2);  // Top point
+            ctx.lineTo(-size/2, size/2); // Bottom left
+            ctx.lineTo(size/2, size/2); // Bottom right
+            ctx.closePath();
+            ctx.fill();
+            ctx.restore();
+        }
+
+        function drawBoss(ctx, x, y, size, color) {
+            ctx.fillStyle = color;
+            ctx.fillRect(x - size/2, y - size/2, size, size);
+        }
+
+        function drawEscort(ctx, x, y, size, color) {
+            ctx.fillStyle = color;
+            ctx.beginPath();
+            ctx.arc(x, y, size/2, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        function drawMothership(ctx, x, y, size, color) {
+            ctx.fillStyle = color;
+            ctx.beginPath();
+            ctx.moveTo(x - size/2, y); // Left point
+            ctx.lineTo(x, y - size/2); // Top point
+            ctx.lineTo(x + size/2, y); // Right point
+            ctx.lineTo(x, y + size/2); // Bottom point
+            ctx.closePath();
+            ctx.fill();
+
+            if (gameState.enemies.find(e => e.type === 'MOTHERSHIP')?.hasShield) {
+                ctx.strokeStyle = '#0ff';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.arc(x, y, size * 0.7, 0, Math.PI * 2);
+                ctx.stroke();
+            }
+        }
+
+        function drawGame() {
+            if (!gameState) {
+                requestAnimationFrame(gameLoop);
+                return;
+            }
+
+            // Clear canvas and draw stars
+            ctx.fillStyle = '#000';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            drawStars();
+
+            // Draw player
+            if (gameState.player) {
+                drawSpaceShip(ctx, 
+                    gameState.player.position.x,
+                    gameState.player.position.y,
+                    gameState.player.size,
+                    gameState.player.hasShield ? '#0ff' : '#0f0'
+                );
+            }
+
+            // Draw enemies
+            if (gameState.enemies) {
+                gameState.enemies.forEach(enemy => {
+                    if (!enemy || !enemy.position) return;
+                    
+                    switch(enemy.type) {
+                        case 'BASIC':
+                            drawSpaceShip(ctx, enemy.position.x, enemy.position.y, enemy.size, '#f00', true);
+                            break;
+                        case 'BOSS':
+                            drawBoss(ctx, enemy.position.x, enemy.position.y, enemy.size, '#f0f');
+                            break;
+                        case 'ESCORT':
+                            drawEscort(ctx, enemy.position.x, enemy.position.y, enemy.size, '#f50');
+                            break;
+                        case 'MOTHERSHIP':
+                            drawMothership(ctx, enemy.position.x, enemy.position.y, enemy.size, '#90f');
+                            break;
+                    }
+                });
+            }
+
+            // Draw bullets with effects
+            if (gameState.bullets) {
+                gameState.bullets.forEach(bullet => {
+                    if (!bullet || !bullet.position) return;
+                    
+                    ctx.beginPath();
+                    if (bullet.fromPlayer) {
+                        if (bullet.isSpecial) {
+                            const gradient = ctx.createRadialGradient(
+                                bullet.position.x, bullet.position.y, 0,
+                                bullet.position.x, bullet.position.y, bullet.size
+                            );
+                            gradient.addColorStop(0, '#0ff');
+                            gradient.addColorStop(1, '#00f');
+                            ctx.fillStyle = gradient;
+                        } else {
+                            ctx.fillStyle = '#0af';
+                        }
+                    } else {
+                        ctx.fillStyle = '#f00';
+                    }
+                    ctx.arc(bullet.position.x, bullet.position.y, bullet.size/2, 0, Math.PI * 2);
+                    ctx.fill();
+                });
+            }
+
+            // Draw effects
+            gameState.effects.forEach(effect => {
+                if (effect.type === 'EXPLOSION') {
+                    drawExplosion(effect);
+                } else if (effect.type === 'BULLET_EFFECT') {
+                    drawBulletEffect(effect);
+                }
+            });
+
+            // Update UI
+            updateUI(gameState);
+        }
+
+        function drawStar(ctx, x, y, size, brightness) {
+            const spikes = 5;
+            const outerRadius = size;
+            const innerRadius = size / 2;
+            
+            ctx.beginPath();
+            ctx.save();
+            ctx.translate(x, y);
+            ctx.rotate(Math.PI / 2);
+            
+            for (let i = 0; i < spikes * 2; i++) {
+                const radius = i % 2 === 0 ? outerRadius : innerRadius;
+                const angle = (Math.PI * i) / spikes;
+                if (i === 0) {
+                    ctx.moveTo(radius * Math.cos(angle), radius * Math.sin(angle));
+                } else {
+                    ctx.lineTo(radius * Math.cos(angle), radius * Math.sin(angle));
+                }
+            }
+            
+            ctx.closePath();
+            // Use golden yellow color with varying opacity
+            ctx.fillStyle = `rgba(255, 215, 0, ${0.3 + brightness * 0.7})`;
+            ctx.fill();
+            ctx.restore();
+        }
+
+        function drawStars() {
+            stars.forEach(star => {
+                // Update star position for parallax effect
+                star.y += star.speed;
+                if (star.y > canvas.height) {
+                    star.y = 0;
+                    star.x = Math.random() * canvas.width;
+                }
+                
+                // Update star brightness
+                star.brightness += star.twinkleSpeed;
+                if (star.brightness > 1 || star.brightness < 0) {
+                    star.twinkleSpeed = -star.twinkleSpeed;
+                }
+                
+                drawStar(ctx, star.x, star.y, star.size, star.brightness);
+            });
+        }
+
+        function drawExplosion(effect) {
+            const progress = effect.currentFrame / effect.duration;
+            const radius = effect.size * (1 + progress);
+            const alpha = 1 - progress;
+            
+            ctx.beginPath();
+            ctx.arc(
+                effect.position.x,
+                effect.position.y,
+                radius,
+                0,
+                Math.PI * 2
+            );
+            
+            const gradient = ctx.createRadialGradient(
+                effect.position.x, effect.position.y, 0,
+                effect.position.x, effect.position.y, radius
+            );
+            gradient.addColorStop(0, `rgba(255, 200, 0, ${alpha})`);
+            gradient.addColorStop(0.5, `rgba(255, 100, 0, ${alpha * 0.8})`);
+            gradient.addColorStop(1, `rgba(255, 0, 0, ${alpha * 0.5})`);
+            
+            ctx.fillStyle = gradient;
+            ctx.fill();
+        }
+
+        function drawBulletEffect(effect) {
+            const alpha = 1 - (effect.currentFrame / effect.duration);
+            ctx.globalAlpha = alpha;
+            
+            const gradient = ctx.createLinearGradient(
+                effect.position.x,
+                effect.position.y - 10,
+                effect.position.x,
+                effect.position.y + 10
+            );
+            
+            if (effect.fromPlayer) {
+                gradient.addColorStop(0, '#0ff');
+                gradient.addColorStop(1, '#00f');
+            } else {
+                gradient.addColorStop(0, '#f0f');
+                gradient.addColorStop(1, '#f00');
+            }
+            
+            ctx.fillStyle = gradient;
+            ctx.fillRect(
+                effect.position.x - effect.size/2,
+                effect.position.y - effect.size/2,
+                effect.size,
+                effect.size
+            );
+            
+            ctx.globalAlpha = 1.0;
+        }
+
+        function drawPowerUp(powerUp) {
+            ctx.fillStyle = getPowerUpColor(powerUp.type);
+            ctx.beginPath();
+            ctx.arc(
+                powerUp.position.x,
+                powerUp.position.y,
+                powerUp.size,
+                0,
+                Math.PI * 2
+            );
+            ctx.fill();
+        }
+
+        function getEnemyColor(type) {
+            switch(type) {
+                case 'BASIC': return '#f00';
+                case 'ESCORT': return '#f50';
+                case 'BOSS': return '#f0f';
+                case 'MOTHERSHIP': return '#90f';
+                default: return '#f00';
+            }
+        }
+
+        function getPowerUpColor(type) {
+            switch(type) {
+                case 'BULLET_COUNT': return '#ff0';
+                case 'BULLET_SIZE': return '#0ff';
+                case 'BULLET_DAMAGE': return '#f0f';
+                case 'SHIELD': return '#0f0';
+                case 'SPEED_BOOST': return '#00f';
+                default: return '#fff';
+            }
+        }
+
+        function drawGameOver() {
+            ctx.fillStyle = '#fff';
+            ctx.font = '48px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText('Game Over', canvas.width/2, canvas.height/2);
+            ctx.font = '24px Arial';
+            ctx.fillText(`Score: ${gameState.score}`, canvas.width/2, canvas.height/2 + 40);
+        }
+
+        function gameLoop() {
+            handleInput();
+            drawGame();
+            requestAnimationFrame(gameLoop);
+        }
+
+        function startGame() {
+            sendCommand({ type: 'START_GAME' });
+        }
+
+        function pauseGame() {
+            sendCommand({ type: 'PAUSE_GAME' });
+        }
+
+        // Initialize game
+        window.onload = () => {
+            connectWebSocket();
+        };
+    </script>
+</body>
+</html>

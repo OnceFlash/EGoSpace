@@ -1,0 +1,52 @@
+game/
+├── core/
+│   ├── GameConfig.java
+│   ├── Position.java
+│   ├── WaveManager.java
+│   └── GameState.java
+├── entity/
+│   ├── ship/
+│   │   ├── Ship.java
+│   │   ├── Player.java
+│   │   ├── Enemy.java
+│   │   ├── Boss.java
+│   │   └── Mothership.java
+│   └── bullet/
+│       ├── Bullet.java
+│       └── BulletType.java
+├── effect/
+│   ├── Effect.java
+│   ├── Explosion.java
+│   └── BulletEffect.java
+├── powerup/
+│   ├── PowerUp.java
+│   └── PowerUpType.java
+├── command/
+│   ├── Command.java
+│   └── InputHandler.java
+├── data/
+│   ├── GameRecord.java
+│   └── RecordManager.java
+└── websocket/
+    └── GameWebSocket.java
+
+
+
+1. Movement pattern
+2. Shield mechanics
+3. Escort spawning
+4. Special abilities (Q,W,E,R)
+- Time Distortion (Q): Semi-circle bullet pattern
+- Stellar Vortex (W): Circular bullet pattern
+- Planetary Beam (E): Linear powerful beam
+- Mass Recall (R): Spawn escorts
+﻿
+1. Complete Mothership battle logic
+- Shield mechanics
+- Escort spawning
+- QWER skills implementation
+2. Skill effects:
+- Time Distortion (Q)
+- Stellar Vortex (W) 
+- Planetary Beam (E)
+- Mass Recall (R)

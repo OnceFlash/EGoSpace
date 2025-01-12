@@ -1,0 +1,45 @@
+1. Access the game at `http://localhost:8081/game-test.html`
+2. Click "Start Game" button to begin
+3. The game will connect via WebSocket and initialize
+
+- Movement:
+  - Left Arrow or A key: Move left
+  - Right Arrow or D key: Move right
+- Combat:
+  - Space or W key: Shoot
+- Game Flow:
+  - Start button: Begin game
+  - Pause button: Pause game
+
+  1. Player Ship (Green)
+   - Blue glow when shielded
+   - Can shoot upwards
+   - Has 3 lives
+
+2. Enemies
+   - Basic Enemy (Red): Simple movement, single shot
+   - Escort Enemy (Orange): Wavy movement, spread shots
+   - Boss (Purple): Appears every 5 waves, phases based on health
+   - Mothership (Light Purple): Rare spawn, has shields and escorts
+
+3. Power-ups
+   - Bullet Count (Yellow): Increases bullet spread
+   - Bullet Size (Cyan): Increases bullet size
+   - Bullet Damage (Magenta): Increases damage
+   - Shield (Green): Temporary invulnerability
+   - Speed Boost (Blue): Increases movement speed
+
+4. Visual Effects
+   - Explosions: Yellow expanding circles
+   - Bullet trails: Color-coded based on source
+
+- Basic Enemy: 100 points
+- Escort Enemy: 200 points
+- Boss: 1000 points (increases with phases)
+- Mothership: 5000 points
+
+1. Waves get progressively harder
+2. Boss appears every 5 waves
+3. Mothership has rare chance to appear
+4. Game ends when player dies
+5. High scores are saved locally
